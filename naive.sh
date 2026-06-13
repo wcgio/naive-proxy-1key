@@ -327,13 +327,215 @@ install_caddy() {
 config() {
     mkdir -p /etc/caddy/ /var/www/html
 
-    # 生成最简首页，避免 file_server 返回目录列表（公开版不下载第三方伪装页）
+    # 生成伪装首页（诗词站），避免 file_server 返回目录列表
+    # 已存在则跳过，便于用户自定义后不被覆盖
     if [ ! -f /var/www/html/index.html ]; then
-        cat > /var/www/html/index.html << 'HTML_EOF'
+        cat > /var/www/html/index.html << 'DECOY_HTML_EOF'
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Welcome</title></head>
-<body><h1>It works!</h1></body></html>
-HTML_EOF
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>诗渡 — 古典诗词品读</title>
+<style>
+  :root{
+    --bg:#fdfcfa; --ink:#2b2722; --ink2:#6a635a; --ink3:#9a8f7d;
+    --line:#ece6da; --card:#ffffff; --seal:#b0473c; --wave:#aed3f0;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{
+    font-family:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    background:var(--bg); color:var(--ink); line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{ color:inherit; text-decoration:none; }
+  .container{ max-width:1080px; margin:0 auto; padding:0 28px; }
+
+  /* 顶栏 */
+  .site-header{ position:sticky; top:0; z-index:10; background:rgba(253,252,250,.9); backdrop-filter:saturate(1.2) blur(6px); border-bottom:1px solid var(--line); }
+  .nav{ display:flex; align-items:center; gap:28px; height:64px; }
+  .logo{ font-size:24px; font-weight:600; letter-spacing:.2em; color:var(--seal); }
+  .menu{ display:flex; gap:26px; font-size:15px; color:var(--ink2); }
+  .menu a:hover{ color:var(--ink); }
+  .search{ margin-left:auto; }
+  .search input{
+    font-family:inherit; font-size:14px; color:var(--ink); background:#fff;
+    border:1px solid var(--line); border-radius:20px; padding:7px 16px; width:180px; outline:none;
+  }
+  .search input:focus{ border-color:var(--ink3); }
+
+  /* 首屏 */
+  .hero{ position:relative; text-align:center; padding:74px 24px 130px; overflow:hidden; }
+  .hero-kicker{ font-size:13px; letter-spacing:.3em; color:var(--seal); margin-bottom:22px; }
+  .hero-verse{ font-size:clamp(30px,5.4vw,50px); font-weight:500; letter-spacing:.16em; line-height:1.6; }
+  .hero-source{ margin-top:20px; font-size:15px; color:var(--ink3); letter-spacing:.1em; }
+  .hero-btn{
+    display:inline-block; margin-top:30px; font-size:14px; letter-spacing:.12em; color:var(--ink);
+    border:1px solid var(--ink3); border-radius:22px; padding:9px 26px; transition:.2s;
+  }
+  .hero-btn:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .hero .waves-wrap{ position:absolute; left:0; right:0; bottom:0; height:90px; overflow:hidden; }
+  .waves{ width:100%; height:100%; display:block; }
+  .parallax>use{ animation:move-forever 25s cubic-bezier(.55,.5,.45,.5) infinite; }
+  .parallax>use:nth-child(1){ animation-delay:-2s; animation-duration:8s; }
+  .parallax>use:nth-child(2){ animation-delay:-3s; animation-duration:11s; }
+  .parallax>use:nth-child(3){ animation-delay:-4s; animation-duration:15s; }
+  .parallax>use:nth-child(4){ animation-delay:-5s; animation-duration:22s; }
+  @keyframes move-forever{ 0%{transform:translate3d(-90px,0,0);} 100%{transform:translate3d(85px,0,0);} }
+
+  /* 区块通用 */
+  .block{ padding:54px 0; }
+  .block-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:26px; }
+  .block-head h2, .block>h2{ font-size:22px; font-weight:600; letter-spacing:.08em; }
+  .block>h2{ margin-bottom:22px; }
+  .more{ font-size:14px; color:var(--ink3); }
+  .more:hover{ color:var(--seal); }
+
+  /* 名篇卡片 */
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:18px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px; transition:.2s; }
+  .card:hover{ border-color:var(--ink3); transform:translateY(-2px); }
+  .card h3{ font-size:18px; font-weight:500; letter-spacing:.06em; }
+  .card .meta{ margin:6px 0 12px; font-size:13px; color:var(--ink3); }
+  .card .first{ font-size:14px; color:var(--ink2); }
+
+  /* 朝代标签 */
+  .tags{ display:flex; flex-wrap:wrap; gap:12px; }
+  .tags a{ font-size:15px; color:var(--ink2); border:1px solid var(--line); border-radius:20px; padding:8px 22px; transition:.2s; }
+  .tags a:hover{ color:var(--seal); border-color:var(--seal); }
+
+  /* 诗人 */
+  .poets{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:16px; }
+  .poet{ display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; transition:.2s; }
+  .poet:hover{ border-color:var(--ink3); }
+  .avatar{ width:38px; height:38px; border-radius:50%; background:#f3ede1; color:var(--seal); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .poet .pn{ font-size:16px; }
+  .poet .dyn{ margin-left:auto; font-size:12px; color:var(--ink3); }
+
+  /* 名句 */
+  .quotes{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+  blockquote{ background:var(--card); border-left:3px solid var(--seal); border-radius:0 8px 8px 0; padding:18px 22px; font-size:17px; letter-spacing:.04em; }
+  blockquote cite{ display:block; margin-top:10px; font-size:13px; color:var(--ink3); font-style:normal; }
+
+  /* 页脚 */
+  footer{ border-top:1px solid var(--line); margin-top:30px; padding:36px 0; background:#faf8f3; }
+  .foot{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 26px; font-size:13px; color:var(--ink3); }
+  .foot .fb{ font-size:18px; font-weight:600; color:var(--seal); letter-spacing:.2em; }
+  .foot-links{ display:flex; gap:18px; }
+  .foot-links a:hover{ color:var(--ink); }
+  .foot-copy{ width:100%; color:var(--ink3); }
+
+  /* 点击涟漪 */
+  .ripple{ position:fixed; border-radius:50%; border:1.5px solid rgba(86,160,210,.5); transform:translate(-50%,-50%); width:0; height:0; opacity:.8; pointer-events:none; z-index:50; animation:rippleExpand 1.1s ease-out forwards; }
+  @keyframes rippleExpand{ 0%{opacity:.8;} to{ width:300px; height:300px; opacity:0; } }
+
+  @media(max-width:640px){ .menu,.search{ display:none; } }
+</style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="logo" href="/">诗渡</a>
+      <nav class="menu">
+        <a href="/shi">诗</a><a href="/ci">词</a><a href="/qu">曲</a>
+        <a href="/poets">诗人</a><a href="/mingju">名句</a><a href="/dianji">典籍</a>
+      </nav>
+      <div class="search"><input type="text" placeholder="搜索诗词、作者…"></div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <p class="hero-kicker">每 日 一 首</p>
+    <h1 class="hero-verse">春江潮水连海平<br>海上明月共潮生</h1>
+    <p class="hero-source">—— 张若虚《春江花月夜》</p>
+    <a class="hero-btn" href="/p/chunjiang">读 全 篇</a>
+    <div class="waves-wrap">
+      <svg class="waves" viewBox="0 24 150 28" preserveAspectRatio="none">
+        <defs><path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" /></defs>
+        <g class="parallax">
+          <use href="#gentle-wave" x="48" y="0" fill="rgba(168,213,240,.5)" />
+          <use href="#gentle-wave" x="48" y="3" fill="rgba(140,198,235,.45)" />
+          <use href="#gentle-wave" x="48" y="5" fill="rgba(110,182,228,.5)" />
+          <use href="#gentle-wave" x="48" y="7" fill="rgba(80,160,215,.9)" />
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <main>
+    <section class="container block">
+      <div class="block-head"><h2>名篇选读</h2><a class="more" href="/famous">查看全部 →</a></div>
+      <div class="cards">
+        <a class="card" href="/p/jingyesi"><h3>静夜思</h3><p class="meta">李白 · 唐</p><p class="first">床前明月光，疑是地上霜</p></a>
+        <a class="card" href="/p/shuidiao"><h3>水调歌头</h3><p class="meta">苏轼 · 宋</p><p class="first">明月几时有，把酒问青天</p></a>
+        <a class="card" href="/p/dengguan"><h3>登鹳雀楼</h3><p class="meta">王之涣 · 唐</p><p class="first">白日依山尽，黄河入海流</p></a>
+        <a class="card" href="/p/shengsheng"><h3>声声慢</h3><p class="meta">李清照 · 宋</p><p class="first">寻寻觅觅，冷冷清清</p></a>
+        <a class="card" href="/p/niannu"><h3>念奴娇·赤壁怀古</h3><p class="meta">苏轼 · 宋</p><p class="first">大江东去，浪淘尽</p></a>
+        <a class="card" href="/p/pipaxing"><h3>琵琶行</h3><p class="meta">白居易 · 唐</p><p class="first">浔阳江头夜送客，枫叶荻花秋瑟瑟</p></a>
+        <a class="card" href="/p/qingyuan"><h3>青玉案·元夕</h3><p class="meta">辛弃疾 · 宋</p><p class="first">东风夜放花千树</p></a>
+        <a class="card" href="/p/shanju"><h3>山居秋暝</h3><p class="meta">王维 · 唐</p><p class="first">空山新雨后，天气晚来秋</p></a>
+      </div>
+    </section>
+
+    <section class="container block">
+      <h2>按时代浏览</h2>
+      <div class="tags">
+        <a href="/d/shijing">诗经</a><a href="/d/chuci">楚辞</a><a href="/d/yuefu">汉乐府</a>
+        <a href="/d/tang">唐诗</a><a href="/d/song">宋词</a><a href="/d/yuan">元曲</a>
+        <a href="/d/mingqing">明清</a>
+      </div>
+    </section>
+
+    <section class="container block">
+      <div class="block-head"><h2>名家</h2><a class="more" href="/poets">更多 →</a></div>
+      <div class="poets">
+        <a class="poet" href="/poet/libai"><span class="avatar">李</span><span class="pn">李白</span><span class="dyn">唐</span></a>
+        <a class="poet" href="/poet/dufu"><span class="avatar">杜</span><span class="pn">杜甫</span><span class="dyn">唐</span></a>
+        <a class="poet" href="/poet/wangwei"><span class="avatar">王</span><span class="pn">王维</span><span class="dyn">唐</span></a>
+        <a class="poet" href="/poet/baijuyi"><span class="avatar">白</span><span class="pn">白居易</span><span class="dyn">唐</span></a>
+        <a class="poet" href="/poet/sushi"><span class="avatar">苏</span><span class="pn">苏轼</span><span class="dyn">宋</span></a>
+        <a class="poet" href="/poet/liqingzhao"><span class="avatar">李</span><span class="pn">李清照</span><span class="dyn">宋</span></a>
+        <a class="poet" href="/poet/xinqiji"><span class="avatar">辛</span><span class="pn">辛弃疾</span><span class="dyn">宋</span></a>
+        <a class="poet" href="/poet/liyu"><span class="avatar">李</span><span class="pn">李煜</span><span class="dyn">五代</span></a>
+      </div>
+    </section>
+
+    <section class="container block">
+      <h2>名句</h2>
+      <div class="quotes">
+        <blockquote>但愿人长久，千里共婵娟。<cite>苏轼《水调歌头》</cite></blockquote>
+        <blockquote>海内存知己，天涯若比邻。<cite>王勃《送杜少府之任蜀州》</cite></blockquote>
+        <blockquote>会当凌绝顶，一览众山小。<cite>杜甫《望岳》</cite></blockquote>
+        <blockquote>问君能有几多愁，恰似一江春水向东流。<cite>李煜《虞美人》</cite></blockquote>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container foot">
+      <span class="fb">诗渡</span>
+      <span>以诗为渡，共此山河岁月</span>
+      <span class="foot-links"><a href="/about">关于我们</a><a href="/contact">联系方式</a><a href="/submit">投稿</a><a href="/links">友情链接</a></span>
+      <span class="foot-copy">© 2026 诗渡 ShiDu · 沪ICP备2026045517号 · 内容仅供学习交流</span>
+    </div>
+  </footer>
+
+  <script>
+    addEventListener('click', function (e) {
+      for (var i = 0; i < 2; i++) {
+        var r = document.createElement('span');
+        r.className = 'ripple';
+        r.style.left = e.clientX + 'px';
+        r.style.top = e.clientY + 'px';
+        r.style.animationDelay = (i * 0.14) + 's';
+        document.body.appendChild(r);
+        r.addEventListener('animationend', function () { this.remove(); });
+      }
+    });
+  </script>
+</body>
+</html>
+DECOY_HTML_EOF
     fi
 
     if [[ $(ls /etc/letsencrypt/live/ 2>/dev/null | grep "$domain") ]]; then
